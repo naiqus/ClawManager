@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  ClawReef を基盤として進化した管理プレーン。クラスタ規模で OpenClaw と Linux デスクトップランタイムを運用するためのプラットフォームです。
+  OpenClaw のクラスタ一括配備と運用のために設計された世界初のプラットフォームです。
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/ClawReef-Upgraded%20to%20ClawManager-e25544?style=for-the-badge" alt="ClawManager Upgrade" />
+  <img src="https://img.shields.io/badge/ClawManager-Virtual%20Desktop%20Platform-e25544?style=for-the-badge" alt="ClawManager Platform" />
   <img src="https://img.shields.io/badge/Go-1.21%2B-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go 1.21+" />
   <img src="https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React 19" />
   <img src="https://img.shields.io/badge/Kubernetes-Native-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes Native" />
@@ -35,13 +35,13 @@
 
 ## 🚀 News
 
-- [03/20/2026] **ClawManager README 更新** - ClawReef の公開版 README をベースに構成を見直し、Webtop 対応、デスクトップ Portal アクセス、ランタイムイメージ設定、OpenClaw の記憶・設定 Markdown バックアップ移行、クラスタ資源概要、多言語ドキュメントなど ClawManager 固有の機能を追加しました。
+- [03/20/2026] **ClawManager 新規リリース** - ClawManager は仮想デスクトップ管理プラットフォームとして正式にリリースされ、バッチデプロイ、Webtop 対応、デスクトップ Portal アクセス、ランタイムイメージ設定、OpenClaw の記憶・設定 Markdown バックアップ移行、クラスタ資源概要、多言語ドキュメントを提供します。
 
 ## 👀 Overview
 
-ClawManager は ClawReef の進化版です。Kubernetes 上の仮想デスクトップ管理という元の目的を維持しつつ、デスクトップランタイム運用、ユーザー統制、安全なクラスタ内アクセスを含む、より完全な制御プレーンへと拡張されています。
+ClawManager は Kubernetes 向けの仮想デスクトップ管理プラットフォームです。デスクトップランタイム運用、ユーザー統制、安全なクラスタ内アクセスを含む完全な制御プレーンを提供します。
 
-ClawReef と比べて、ClawManager は元のインスタンスライフサイクルと quota モデルを保持するだけでなく、より強力な管理コンソール、プロキシベースのデスクトップアクセス、ランタイムイメージ制御、クラスタ資源の可視化、そして OpenClaw の記憶・設定バックアップ移行機能を追加しています。
+ClawManager はバッチデプロイ、インスタンスライフサイクル管理、管理コンソール、プロキシベースのデスクトップアクセス、ランタイムイメージ制御、クラスタ資源の可視化、OpenClaw の記憶・設定バックアップ移行機能を一つのプラットフォームに統合しています。
 
 ClawManager は次のような環境を想定しています：
 
@@ -52,7 +52,6 @@ ClawManager は次のような環境を想定しています：
 
 要するに ClawManager は：
 
-- ClawReef のアップグレード管理プレーン
 - OpenClaw と Linux デスクトップランタイムの集中運用コンソール
 - Kubernetes 上のマルチユーザーデスクトップ管理プラットフォーム
 - トークン認証プロキシによる内部デスクトップ向け安全アクセス層
@@ -60,6 +59,7 @@ ClawManager は次のような環境を想定しています：
 ## ✨ At a Glance
 
 - マルチテナントなデスクトップインスタンス管理
+- ユーザー単位またはランタイムプロファイル単位でのデスクトップ一括デプロイ
 - CPU、メモリ、ストレージ、GPU、インスタンス数に対するユーザー quota 制御
 - OpenClaw、Webtop、Ubuntu、Debian、CentOS、カスタムランタイムをサポート
 - トークン生成と WebSocket 転送による安全なデスクトッププロキシアクセス
@@ -67,7 +67,11 @@ ClawManager は次のような環境を想定しています：
 - ユーザー、インスタンス、イメージカード、クラスタ資源向けの管理ダッシュボード
 - 多言語 UI：英語、中国語、日本語、韓国語、ドイツ語
 
-> 🧭 ClawReef から ClawManager へ: より強い管理制御、より安全なデスクトップアクセス、より豊富なランタイム運用機能。
+> 🧭 ClawManager は管理制御、安全なデスクトップアクセス、ランタイム運用を一つの制御プレーンにまとめます。
+
+<p align="center">
+  <img src="frontend/public/clawmanager_overview.png" alt="ClawManager Overview" width="100%" />
+</p>
 
 ## 📚 Table of Contents
 
@@ -88,9 +92,10 @@ ClawManager は次のような環境を想定しています：
 
 ## 🆕 ClawManager New Features
 
-ClawReef に対する主な追加点：
+ClawManager の主要機能：
 
 - 🖥 ブラウザ内デスクトップアクセス向け `webtop` ランタイム対応
+- 📦 大規模デスクトップ展開向けのバッチデプロイ機能
 - 🚪 実行中インスタンスを一箇所で切り替えられる Desktop Portal ページ
 - 🔐 トークンベースのインスタンスアクセスエンドポイントとリバースプロキシ経路
 - 🔄 デスクトップセッションおよび状態更新のための WebSocket 転送
@@ -104,6 +109,7 @@ ClawReef に対する主な追加点：
 ## 🛠 Key Features
 
 - ⚙️ インスタンスライフサイクル管理: 作成、起動、停止、再起動、削除、参照、強制同期
+- 📦 大規模デスクトップ展開を支えるバッチデプロイ対応
 - 🧱 対応ランタイムタイプ: `openclaw`、`webtop`、`ubuntu`、`debian`、`centos`、`custom`
 - 🔒 認証付きプロキシエンドポイントによる安全なデスクトップアクセス
 - 📡 WebSocket ベースのリアルタイム状態更新
