@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  ClawReef 升级而来的管理平面，用于在集群规模下统一运营 OpenClaw 与 Linux 桌面运行时。
+  全球首款面向 OpenClaw 集群批量部署与运维的平台。
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/ClawReef-Upgraded%20to%20ClawManager-e25544?style=for-the-badge" alt="ClawManager Upgrade" />
+  <img src="https://img.shields.io/badge/ClawManager-Virtual%20Desktop%20Platform-e25544?style=for-the-badge" alt="ClawManager Platform" />
   <img src="https://img.shields.io/badge/Go-1.21%2B-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go 1.21+" />
   <img src="https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React 19" />
   <img src="https://img.shields.io/badge/Kubernetes-Native-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes Native" />
@@ -35,13 +35,13 @@
 
 ## 🚀 News
 
-- [03/20/2026] **ClawManager README 更新** - 基于 ClawReef 发布版 README 重新组织项目介绍，并补充 ClawManager 的新增能力，包括 Webtop 支持、桌面 Portal 访问、运行时镜像设置、OpenClaw 记忆/偏好 Markdown 备份迁移、集群资源总览和多语言文档。
+- [03/20/2026] **ClawManager 全新发布** - ClawManager 正式发布，作为虚拟桌面管理平台，提供批量部署、Webtop 支持、桌面 Portal 访问、运行时镜像设置、OpenClaw 记忆/偏好 Markdown 备份迁移、集群资源总览和多语言文档。
 
 ## 👀 Overview
 
-ClawManager 是 ClawReef 的升级版本。它延续了在 Kubernetes 上管理虚拟桌面的原始目标，同时把产品扩展为一个更完整的桌面运行时运营平面，覆盖运行控制、用户治理和安全的集群内访问。
+ClawManager 是一个面向 Kubernetes 的虚拟桌面管理平台，提供完整的桌面运行时运营平面，覆盖运行控制、用户治理和安全的集群内访问。
 
-相较于 ClawReef，ClawManager 不仅保留了原有的实例生命周期和 quota 模型，还新增了更强的管理员控制台、基于代理的桌面访问、运行时镜像控制、集群资源可视化，以及 OpenClaw 记忆/偏好备份迁移能力。
+ClawManager 将批量部署、实例生命周期管理、管理员控制台、基于代理的桌面访问、运行时镜像控制、集群资源可视化，以及 OpenClaw 记忆/偏好备份迁移能力统一到一个平台中。
 
 ClawManager 适用于这些环境：
 
@@ -52,7 +52,6 @@ ClawManager 适用于这些环境：
 
 简而言之，ClawManager 是：
 
-- ClawReef 的升级管理平面
 - OpenClaw 与 Linux 桌面运行时的集中运维控制台
 - Kubernetes 上的多用户桌面管理平台
 - 基于令牌鉴权代理的内部桌面安全访问层
@@ -60,6 +59,7 @@ ClawManager 适用于这些环境：
 ## ✨ At a Glance
 
 - 多租户桌面实例管理
+- 面向用户或运行时模板的桌面实例批量部署
 - 针对 CPU、内存、存储、GPU 和实例数量的用户 quota 控制
 - 支持 OpenClaw、Webtop、Ubuntu、Debian、CentOS 和自定义运行时
 - 通过令牌生成和 WebSocket 转发实现安全桌面代理访问
@@ -67,7 +67,11 @@ ClawManager 适用于这些环境：
 - 管理员后台提供用户、实例、镜像卡片和集群资源视图
 - 多语言界面：英文、中文、日文、韩文、德文
 
-> 🧭 从 ClawReef 到 ClawManager：更强的管理员控制、更安全的桌面访问，以及更丰富的运行时运维能力。
+> 🧭 ClawManager 将管理员控制、安全桌面访问和运行时运维整合到一个控制平面中。
+
+<p align="center">
+  <img src="frontend/public/clawmanager_overview.png" alt="ClawManager Overview" width="100%" />
+</p>
 
 ## 📚 Table of Contents
 
@@ -88,9 +92,10 @@ ClawManager 适用于这些环境：
 
 ## 🆕 ClawManager New Features
 
-这些是 ClawManager 相比 ClawReef 的主要新增点：
+这些是 ClawManager 的主要能力：
 
 - 🖥 `webtop` 运行时支持，用于浏览器内桌面访问
+- 📦 支持大规模桌面实例分发的批量部署能力
 - 🚪 Desktop Portal 页面，可在一个入口中切换运行中的实例
 - 🔐 基于令牌的实例访问端点和反向代理路由
 - 🔄 桌面会话和状态更新的 WebSocket 转发
@@ -104,6 +109,7 @@ ClawManager 适用于这些环境：
 ## 🛠 Key Features
 
 - ⚙️ 实例生命周期管理：创建、启动、停止、重启、删除、查看和强制同步
+- 📦 面向大规模桌面发放场景的批量部署支持
 - 🧱 支持运行时类型：`openclaw`、`webtop`、`ubuntu`、`debian`、`centos`、`custom`
 - 🔒 通过鉴权代理端点提供安全桌面访问
 - 📡 基于 WebSocket 的实时状态更新
