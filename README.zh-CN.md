@@ -25,6 +25,11 @@
   <img src="https://img.shields.io/badge/License-MIT-2ea44f?style=for-the-badge" alt="MIT License" />
 </p>
 
+<p align="center">
+  <img src="./docs/main/clawmanager_features.jpg" alt="ClawManager Admin" width="100%" />
+</p>
+
+
 ## 新闻
 
 - [2026-03-26]: 🚀🚀 AI Gateway 文档与总览已更新，涵盖模型治理、审计追踪、成本核算和风险控制。参见 [AI Gateway](#ai-gateway)。
@@ -220,3 +225,13 @@ Username,Email,Role,Max Instances,Max CPU Cores,Max Memory (GB),Max Storage (GB)
 ## 开源
 
 欢迎提交 issue 和 pull request。
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=Yuan-lab-LLM%2FClawManager&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Yuan-lab-LLM/ClawManager&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Yuan-lab-LLM/ClawManager&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Yuan-lab-LLM/ClawManager&type=date&legend=top-left" />
+ </picture>
+</a>
