@@ -671,7 +671,8 @@ func (h *InstanceHandler) GenerateAccessToken(c *gin.Context) {
 	// Generate access token (valid for 1 hour)
 	maxAgeSeconds := int(time.Hour.Seconds())
 	token, err := h.accessService.GenerateToken(
-		userID.(int),
+		userID.(int),        // caller
+		instance.UserID,     // owner
 		instance.ID,
 		instance.Type,
 		accessURL,
