@@ -229,6 +229,13 @@ func (s *instanceAgentService) Heartbeat(session *AgentSession, req AgentHeartbe
 	session.Agent.Status = agentStatusOnline
 	session.Agent.LastHeartbeatAt = &now
 	session.Agent.LastSeenIP = optionalString(strings.TrimSpace(clientIP))
+
+	// Renew session expiry on each successful heartbeat (rolling window).
+	// Without this, the 24-hour session token issued at Register() silently
+	// expires and the agent is permanently locked out until pod restart.
+	newExpiry := now.Add(24 * time.Hour)
+	session.Agent.SessionExpiresAt = &newExpiry
+
 	if err := s.agentRepo.Update(session.Agent); err != nil {
 		return nil, err
 	}
