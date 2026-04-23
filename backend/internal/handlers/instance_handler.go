@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// openclawMinArchiveBytes is the minimum acceptable size of an .openclaw
+// export archive. A correctly-compressed tar.gz of a single empty file is
+// already ~125 bytes, so anything smaller indicates a malformed or empty
+// stream from the exec pipeline rather than a real workspace dump.
+const openclawMinArchiveBytes = 100
 
 // InstanceHandler handles instance management requests
 type InstanceHandler struct {
@@ -854,7 +861,16 @@ func (h *InstanceHandler) ExportOpenClaw(c *gin.Context) {
 
 	archive, err := h.openClawTransferService.Export(c.Request.Context(), instance.UserID, instance.ID)
 	if err != nil {
+		if errors.Is(err, services.ErrOpenClawWorkspaceMissing) {
+			utils.Error(c, http.StatusNotFound, "openclaw workspace is empty or missing")
+			return
+		}
 		utils.HandleError(c, err)
+		return
+	}
+
+	if len(archive) < openclawMinArchiveBytes {
+		utils.Error(c, http.StatusInternalServerError, "export produced an empty archive")
 		return
 	}
 
