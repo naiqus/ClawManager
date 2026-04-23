@@ -11,14 +11,14 @@ The following images can be used for ARM64 deployments:
 | Image | Address | Description |
 |-------|---------|-------------|
 | ClawManager Main App | `ghcr.io/yuan-lab-llm/clawmanager:latest` | Official multi-platform image with ARM64 support |
-| Skill Scanner | `ghcr.io/xty00/skill-scanner:latest` | ARM64 version (official repo has no ARM64 support) |
+| Skill Scanner | `ghcr.io/yuan-lab-llm/skill-scanner:latest` | Official image now supports ARM64 |
 
 ### Using Pre-built Images
 
 ```bash
 # Pull ARM64 images
 docker pull ghcr.io/yuan-lab-llm/clawmanager:latest --platform linux/arm64
-docker pull ghcr.io/xty00/skill-scanner:latest --platform linux/arm64
+docker pull ghcr.io/yuan-lab-llm/skill-scanner:latest --platform linux/arm64
 ```
 
 ## Building ARM64 Images from Source
@@ -37,11 +37,11 @@ CGO_ENABLED=0 go build -ldflags="-s -w -extldflags=-static" -o bin/clawreef-serv
 docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/your-name/clawmanager:latest --push .
 ```
 
-### skill-scanner ARM64 Build
+### skill-scanner ARM64 Build (Optional)
 
-The skill-scanner official repo (`ghcr.io/yuan-lab-llm/skill-scanner`) only supports amd64 platform.
+`ghcr.io/yuan-lab-llm/skill-scanner:latest` now supports ARM64.
 
-ARM64 users need to build from source:
+Build from source only if you need a customized image:
 
 ```bash
 # Clone the repo
@@ -69,7 +69,7 @@ In `clawmanager.yaml`, make sure the image addresses support ARM64:
 image: ghcr.io/yuan-lab-llm/clawmanager:latest
 
 # skill-scanner (if needed)
-image: ghcr.io/xty00/skill-scanner:latest
+image: ghcr.io/yuan-lab-llm/skill-scanner:latest
 ```
 
 ### Database Initialization
@@ -94,11 +94,11 @@ FLUSH PRIVILEGES;
 - **Platforms**: `linux/amd64`, `linux/arm64`
 - **Deployment impact**: ARM64 nodes automatically pull the matching main app image without a separate ARM-only tag
 
-### skill-scanner Official Image Has No ARM64 Support
+### skill-scanner Official Image Supports ARM64
 
-- **Problem**: `ghcr.io/yuan-lab-llm/skill-scanner:latest` only provides amd64 platform
-- **Solution**: Use third-party ARM64 image `ghcr.io/xty00/skill-scanner:latest`
-- **Alternative**: Build from source (see above)
+- **Status**: `ghcr.io/yuan-lab-llm/skill-scanner:latest` now provides ARM64 image
+- **Deployment impact**: ARM64 nodes automatically pull the matching architecture image
+- **Recommendation**: pin a specific tag instead of `latest` for reproducible deployments
 
 ### ARM64 Device Performance Notes
 

@@ -11,14 +11,14 @@
 | 镜像 | 地址 | 说明 |
 |------|------|------|
 | ClawManager 主应用 | `ghcr.io/yuan-lab-llm/clawmanager:latest` | 官方多架构镜像，包含 ARM64 |
-| Skill Scanner | `ghcr.io/xty00/skill-scanner:latest` | ARM64版本（官方原仓库无ARM64支持） |
+| Skill Scanner | `ghcr.io/yuan-lab-llm/skill-scanner:latest` | 官方镜像已支持 ARM64 |
 
 ### 使用预构建镜像
 
 ```bash
 # 拉取ARM64镜像
 docker pull ghcr.io/yuan-lab-llm/clawmanager:latest --platform linux/arm64
-docker pull ghcr.io/xty00/skill-scanner:latest --platform linux/arm64
+docker pull ghcr.io/yuan-lab-llm/skill-scanner:latest --platform linux/arm64
 ```
 
 ## 从源码构建 ARM64 镜像
@@ -37,11 +37,11 @@ CGO_ENABLED=0 go build -ldflags="-s -w -extldflags=-static" -o bin/clawreef-serv
 docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/your-name/clawmanager:latest --push .
 ```
 
-### skill-scanner ARM64 构建
+### skill-scanner ARM64 构建（可选）
 
-skill-scanner 原仓库 (`ghcr.io/yuan-lab-llm/skill-scanner`) 仅支持 amd64 平台。
+`ghcr.io/yuan-lab-llm/skill-scanner:latest` 已支持 ARM64 平台。
 
-ARM64 用户需要从源码构建：
+如需自定义镜像，可从源码构建：
 
 ```bash
 # 克隆仓库
@@ -69,7 +69,7 @@ docker buildx build --platform linux/arm64 \
 image: ghcr.io/yuan-lab-llm/clawmanager:latest
 
 # skill-scanner（如果需要）
-image: ghcr.io/xty00/skill-scanner:latest
+image: ghcr.io/yuan-lab-llm/skill-scanner:latest
 ```
 
 ### 数据库初始化
@@ -94,11 +94,11 @@ FLUSH PRIVILEGES;
 - **支持平台**: `linux/amd64`、`linux/arm64`
 - **部署方式**: ARM64 节点会自动拉取对应架构镜像，无需单独维护主应用镜像地址
 
-### skill-scanner 官方镜像无 ARM64 支持
+### skill-scanner 官方镜像支持 ARM64
 
-- **问题**: `ghcr.io/yuan-lab-llm/skill-scanner:latest` 仅提供 amd64 平台
-- **解决方案**: 使用第三方构建的 ARM64 镜像 `ghcr.io/xty00/skill-scanner:latest`
-- **备选方案**: 从源码自行构建（见上文）
+- **状态**: `ghcr.io/yuan-lab-llm/skill-scanner:latest` 已提供 ARM64 平台镜像
+- **部署方式**: ARM64 节点会自动拉取对应架构镜像
+- **建议**: 如需可复现部署，建议使用固定 tag 而非 `latest`
 
 ### ARM64 设备性能注意
 
