@@ -27,7 +27,10 @@ const INSTANCE_SKILL_PAGE_SIZE = 5;
 // When the server returned a structured JSON body it surfaces the `error`
 // field; otherwise it falls back to the HTTP status (e.g. plain-HTML 413
 // from nginx) or the raw error message.
-function describeOpenClawError(err: any): string {
+function describeOpenClawError(
+  err: any,
+  t: (key: string, variables?: Record<string, string | number>) => string,
+): string {
   const data = err?.response?.data;
   if (typeof data === "string" && data.trim() !== "") {
     // Strip HTML tags so nginx's default error page is not dumped verbatim.
@@ -39,7 +42,7 @@ function describeOpenClawError(err: any): string {
   }
   const status = err?.response?.status;
   if (status === 413) {
-    return "archive too large (HTTP 413)";
+    return t("instances.openClawArchiveTooLarge");
   }
   if (typeof status === "number") {
     return `HTTP ${status}`;
@@ -544,7 +547,7 @@ const InstanceDetailPage: React.FC = () => {
     } catch (err: any) {
       alert(
         t("instances.exportOpenClawFailed", {
-          message: describeOpenClawError(err),
+          message: describeOpenClawError(err, t),
         }),
       );
     } finally {
@@ -563,7 +566,7 @@ const InstanceDetailPage: React.FC = () => {
     } catch (err: any) {
       alert(
         t("instances.importOpenClawFailed", {
-          message: describeOpenClawError(err),
+          message: describeOpenClawError(err, t),
         }),
       );
     } finally {

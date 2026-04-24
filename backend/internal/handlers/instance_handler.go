@@ -25,8 +25,9 @@ const openclawMinArchiveBytes = 100
 // openclawMaxUploadBytes caps the size of an .openclaw import upload.
 // Must align with the edge nginx client_max_body_size so that oversize
 // uploads produce a structured JSON 413 here instead of an opaque HTML
-// 413 from nginx. See ClawManager/deployments/nginx/nginx.conf.
-const openclawMaxUploadBytes = 512 << 20 // 512 MiB
+// 413 from nginx. See ClawManager/deployments/nginx/nginx.conf and
+// deployment/nginx-conf.yaml.
+const openclawMaxUploadBytes = 50 << 20 // 50 MiB
 
 // InstanceHandler handles instance management requests
 type InstanceHandler struct {
