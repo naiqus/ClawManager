@@ -286,6 +286,7 @@ const updateTelegramChannelContentText = (
 
   const existingConfig = parsed;
   const config = {
+    ...existingConfig,
     enabled: true,
     botToken: nextForm.botToken,
     dmPolicy:
@@ -334,6 +335,7 @@ const updateDingTalkChannelContentText = (
 
   const existingConfig = parsed;
   const config = {
+    ...existingConfig,
     enabled: true,
     clientId: nextForm.clientId,
     clientSecret: nextForm.clientSecret,
@@ -378,6 +380,7 @@ const updateSlackChannelContentText = (
 
   const existingConfig = parsed;
   const config = {
+    ...existingConfig,
     enabled: true,
     botToken: nextForm.botToken,
     appToken: nextForm.appToken,
@@ -454,10 +457,17 @@ const updateFeishuChannelContentText = (
     ...patch,
   };
 
+  const existingAccounts = isRecord(parsed.accounts) ? parsed.accounts : {};
+  const existingMain = isRecord(existingAccounts.main)
+    ? existingAccounts.main
+    : {};
   const config = {
+    ...parsed,
     enabled: true,
     accounts: {
+      ...existingAccounts,
       main: {
+        ...existingMain,
         appId: nextForm.appId,
         appSecret: nextForm.appSecret,
       },
