@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// openclawMinArchiveBytes is the minimum acceptable size of an .openclaw
+// export archive. A correctly-compressed tar.gz of a single empty file is
+// already ~125 bytes, so anything smaller indicates a malformed or empty
+// stream from the exec pipeline rather than a real workspace dump.
+const openclawMinArchiveBytes = 100
+
+// openclawMaxUploadBytes caps the size of an .openclaw import upload.
+// Must align with the edge nginx client_max_body_size so that oversize
+// uploads produce a structured JSON 413 here instead of an opaque HTML
+// 413 from nginx. See ClawManager/deployments/nginx/nginx.conf and
+// deployment/nginx-conf.yaml.
+const openclawMaxUploadBytes = 50 << 20 // 50 MiB
 
 // InstanceHandler handles instance management requests
 type InstanceHandler struct {
@@ -854,7 +868,16 @@ func (h *InstanceHandler) ExportOpenClaw(c *gin.Context) {
 
 	archive, err := h.openClawTransferService.Export(c.Request.Context(), instance.UserID, instance.ID)
 	if err != nil {
+		if errors.Is(err, services.ErrOpenClawWorkspaceMissing) {
+			utils.Error(c, http.StatusNotFound, "openclaw workspace is empty or missing")
+			return
+		}
 		utils.HandleError(c, err)
+		return
+	}
+
+	if len(archive) < openclawMinArchiveBytes {
+		utils.Error(c, http.StatusInternalServerError, "export produced an empty archive")
 		return
 	}
 
@@ -881,9 +904,27 @@ func (h *InstanceHandler) ImportOpenClaw(c *gin.Context) {
 		return
 	}
 
+	// Cap the request body early so oversize uploads fail with a structured
+	// JSON 413 instead of nginx's opaque HTML 413 or a surprise ENOSPC deep
+	// inside multipart parsing. MaxBytesReader trips ParseMultipartForm
+	// (invoked by c.FormFile) with a typed *http.MaxBytesError.
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, openclawMaxUploadBytes)
+
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			utils.Error(c, http.StatusRequestEntityTooLarge,
+				fmt.Sprintf("archive too large; maximum upload size is %d MiB", openclawMaxUploadBytes>>20))
+			return
+		}
 		utils.Error(c, http.StatusBadRequest, "file is required")
+		return
+	}
+
+	if fileHeader.Size > openclawMaxUploadBytes {
+		utils.Error(c, http.StatusRequestEntityTooLarge,
+			fmt.Sprintf("archive too large; maximum upload size is %d MiB", openclawMaxUploadBytes>>20))
 		return
 	}
 
@@ -894,7 +935,7 @@ func (h *InstanceHandler) ImportOpenClaw(c *gin.Context) {
 	}
 	defer file.Close()
 
-	if err := h.openClawTransferService.Import(c.Request.Context(), instance.UserID, instance.ID, io.LimitReader(file, 512<<20)); err != nil {
+	if err := h.openClawTransferService.Import(c.Request.Context(), instance.UserID, instance.ID, io.LimitReader(file, openclawMaxUploadBytes)); err != nil {
 		utils.HandleError(c, err)
 		return
 	}
