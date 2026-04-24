@@ -46,6 +46,13 @@ func NewInstanceHandler(instanceService services.InstanceService, instanceAgentS
 	}
 }
 
+// Shutdown releases resources held by the handler (e.g. background goroutines).
+func (h *InstanceHandler) Shutdown() {
+	if h.accessService != nil {
+		h.accessService.Stop()
+	}
+}
+
 type InstanceRuntimeDetailsResponse struct {
 	Runtime  *services.InstanceRuntimeStatusPayload `json:"runtime,omitempty"`
 	Agent    *services.InstanceAgentPayload         `json:"agent,omitempty"`
