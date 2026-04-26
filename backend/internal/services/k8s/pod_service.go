@@ -7,9 +7,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // PodService handles Pod operations
@@ -61,134 +59,9 @@ func (s *PodService) CreatePod(ctx context.Context, config PodConfig) (*corev1.P
 	namespace := s.client.GetNamespace(config.UserID)
 	pvcName := s.client.GetPVCName(config.InstanceID)
 
-	// Build resource requirements
-	resources := corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%g", config.CPUCores)),
-			corev1.ResourceMemory: resource.MustParse(fmt.Sprintf("%dGi", config.MemoryGB)),
-		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%g", config.CPUCores)),
-			corev1.ResourceMemory: resource.MustParse(fmt.Sprintf("%dGi", config.MemoryGB)),
-		},
-	}
-
-	// Add GPU resources if enabled
-	if config.GPUEnabled && config.GPUCount > 0 {
-		resources.Limits["nvidia.com/gpu"] = resource.MustParse(fmt.Sprintf("%d", config.GPUCount))
-		resources.Requests["nvidia.com/gpu"] = resource.MustParse(fmt.Sprintf("%d", config.GPUCount))
-	}
-
-	// Default container port
-	if config.ContainerPort == 0 {
-		config.ContainerPort = 3001
-	}
-
 	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
-			Namespace: namespace,
-			Labels: map[string]string{
-				"app":           "clawreef",
-				"instance-id":   fmt.Sprintf("%d", config.InstanceID),
-				"instance-name": config.InstanceName,
-				"user-id":       fmt.Sprintf("%d", config.UserID),
-				"instance-type": config.Type,
-				"managed-by":    "clawreef",
-			},
-		},
-		Spec: corev1.PodSpec{
-			RestartPolicy: corev1.RestartPolicyNever,
-			Containers: []corev1.Container{
-				{
-					Name:  "desktop",
-					Image: config.Image,
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: config.ContainerPort,
-							Name:          "http",
-						},
-					},
-					StartupProbe: &corev1.Probe{
-						ProbeHandler: corev1.ProbeHandler{
-							TCPSocket: &corev1.TCPSocketAction{
-								Port: intstrFromInt32(config.ContainerPort),
-							},
-						},
-						FailureThreshold: 30,
-						PeriodSeconds:    5,
-						TimeoutSeconds:   2,
-					},
-					ReadinessProbe: &corev1.Probe{
-						ProbeHandler: corev1.ProbeHandler{
-							TCPSocket: &corev1.TCPSocketAction{
-								Port: intstrFromInt32(config.ContainerPort),
-							},
-						},
-						InitialDelaySeconds: 3,
-						PeriodSeconds:       5,
-						TimeoutSeconds:      2,
-						FailureThreshold:    6,
-					},
-					LivenessProbe: &corev1.Probe{
-						ProbeHandler: corev1.ProbeHandler{
-							TCPSocket: &corev1.TCPSocketAction{
-								Port: intstrFromInt32(config.ContainerPort),
-							},
-						},
-						InitialDelaySeconds: 15,
-						PeriodSeconds:       10,
-						TimeoutSeconds:      2,
-						FailureThreshold:    3,
-					},
-					Resources: resources,
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "data",
-							MountPath: config.MountPath,
-						},
-					},
-					Env: []corev1.EnvVar{
-						{
-							Name:  "INSTANCE_ID",
-							Value: fmt.Sprintf("%d", config.InstanceID),
-						},
-						{
-							Name:  "USER_ID",
-							Value: fmt.Sprintf("%d", config.UserID),
-						},
-					},
-				},
-			},
-			Volumes: []corev1.Volume{
-				{
-					Name: "data",
-					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvcName,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for key, value := range config.ExtraEnv {
-		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
-			Name:  key,
-			Value: value,
-		})
-	}
-
-	for _, secretName := range config.EnvFromSecretNames {
-		if secretName == "" {
-			continue
-		}
-		pod.Spec.Containers[0].EnvFrom = append(pod.Spec.Containers[0].EnvFrom, corev1.EnvFromSource{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
-			},
-		})
+		ObjectMeta: buildInstancePodObjectMeta(config, podName, namespace),
+		Spec:       buildInstancePodSpec(config, pvcName),
 	}
 
 	createdPod, err := s.client.Clientset.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
@@ -221,10 +94,6 @@ func (s *PodService) CreatePod(ctx context.Context, config PodConfig) (*corev1.P
 	}
 
 	return createdPod, nil
-}
-
-func intstrFromInt32(port int32) intstr.IntOrString {
-	return intstr.FromInt32(port)
 }
 
 // GetPod gets a pod by instance ID
