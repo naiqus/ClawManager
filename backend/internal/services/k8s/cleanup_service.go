@@ -47,6 +47,12 @@ func (s *CleanupService) DeleteAllInstanceResources(ctx context.Context, userID,
 	for _, namespace := range namespaces {
 		fmt.Printf("Deleting resources for instance %d in namespace %s\n", instanceID, namespace)
 
+		// 0. Delete any StatefulSets first — otherwise their controller will
+		//    immediately recreate the pods we delete in the next step.
+		if err := s.deleteAllStatefulSets(ctx, namespace, instanceLabel); err != nil {
+			fmt.Printf("Warning: deleteAllStatefulSets in %s: %v\n", namespace, err)
+		}
+
 		// 1. Delete all Pods with matching instance-id label
 		if err := s.deleteAllPods(ctx, namespace, instanceLabel); err != nil {
 			fmt.Printf("Warning: error deleting pods: %v\n", err)
@@ -103,6 +109,15 @@ func (s *CleanupService) findNamespacesWithInstance(ctx context.Context, instanc
 
 	var result []string
 	for _, ns := range namespaces.Items {
+		// Check if this namespace has any StatefulSets for this instance
+		stss, err := s.client.Clientset.AppsV1().StatefulSets(ns.Name).List(ctx, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("instance-id=%s,managed-by=clawreef", instanceLabel),
+		})
+		if err == nil && len(stss.Items) > 0 {
+			result = append(result, ns.Name)
+			continue
+		}
+
 		// Check if this namespace has any pods for this instance
 		pods, err := s.client.Clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("instance-id=%s,managed-by=clawreef", instanceLabel),
@@ -306,6 +321,15 @@ func (s *CleanupService) WaitForResourceDeletion(ctx context.Context, namespaces
 			allDeleted := true
 
 			for _, namespace := range namespaces {
+				// Check StatefulSets
+				stss, err := s.client.Clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("instance-id=%s,managed-by=clawreef", instanceLabel),
+				})
+				if err == nil && len(stss.Items) > 0 {
+					allDeleted = false
+					fmt.Printf("  Still waiting: %d statefulset(s) in %s\n", len(stss.Items), namespace)
+				}
+
 				// Check pods
 				pods, err := s.client.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 					LabelSelector: fmt.Sprintf("instance-id=%s,managed-by=clawreef", instanceLabel),
@@ -348,4 +372,33 @@ func (s *CleanupService) WaitForResourceDeletion(ctx context.Context, namespaces
 			}
 		}
 	}
+}
+
+// deleteAllStatefulSets deletes all StatefulSets with matching instance-id label.
+// Called before deleteAllPods so the STS controller doesn't immediately
+// recreate pods we delete next.
+func (s *CleanupService) deleteAllStatefulSets(ctx context.Context, namespace, instanceLabel string) error {
+	stss, err := s.client.Clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("instance-id=%s,managed-by=clawreef", instanceLabel),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list statefulsets: %w", err)
+	}
+
+	if len(stss.Items) == 0 {
+		fmt.Printf("No statefulsets found for instance %s\n", instanceLabel)
+		return nil
+	}
+
+	fg := metav1.DeletePropagationForeground
+	for _, sts := range stss.Items {
+		fmt.Printf("Deleting statefulset: %s\n", sts.Name)
+		if err := s.client.Clientset.AppsV1().StatefulSets(namespace).Delete(ctx, sts.Name, metav1.DeleteOptions{
+			PropagationPolicy: &fg,
+		}); err != nil {
+			fmt.Printf("Warning: failed to delete statefulset %s: %v\n", sts.Name, err)
+		}
+	}
+
+	return nil
 }
