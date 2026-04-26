@@ -233,6 +233,14 @@ func (c *Client) GetPodName(instanceID int, instanceName string) string {
 	return sanitizeK8sName(fmt.Sprintf("clawreef-%d-%s", instanceID, instanceName))
 }
 
+// GetStatefulSetName returns the StatefulSet name for an instance.
+// Identical to GetPodName so existing pod-name-based callers (cleanup,
+// exec, logs) keep working — the StatefulSet's pod is named
+// "<sts-name>-0" by convention.
+func (c *Client) GetStatefulSetName(instanceID int, instanceName string) string {
+	return sanitizeK8sName(fmt.Sprintf("clawreef-%d-%s", instanceID, instanceName))
+}
+
 // GetPVCName returns the PVC name for an instance
 func (c *Client) GetPVCName(instanceID int) string {
 	return sanitizeK8sName(fmt.Sprintf("clawreef-%d-pvc", instanceID))
