@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -496,10 +497,34 @@ func (s *instanceService) Start(instanceID int) error {
 		EnvFromSecretNames: []string{bootstrapSecretName},
 	}
 
-	pod, err := s.podService.CreatePod(ctx, podConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create pod: %w", err)
+	// Migration path: if a legacy bare Pod exists for this instance from
+	// before the STS rollout, delete it so the STS can take over.
+	if existing, getErr := s.podService.GetPod(ctx, instance.UserID, instance.ID); getErr == nil && existing != nil {
+		legacy := true
+		for _, owner := range existing.OwnerReferences {
+			if owner.Kind == "StatefulSet" {
+				legacy = false
+				break
+			}
+		}
+		if legacy {
+			_ = s.podService.DeletePod(ctx, instance.UserID, instance.ID)
+		}
 	}
+
+	// Try to scale an existing STS; create one if absent.
+	if err := s.stsService.Scale(ctx, instance.UserID, instance.ID, 1); err != nil {
+		if !errors.Is(err, k8s.ErrStatefulSetNotFound) {
+			return fmt.Errorf("failed to scale statefulset: %w", err)
+		}
+		if _, err := s.stsService.CreateStatefulSet(ctx, podConfig); err != nil {
+			return fmt.Errorf("failed to create statefulset: %w", err)
+		}
+	}
+
+	stsName := s.podService.GetClient().GetStatefulSetName(instance.ID, instance.Name)
+	podName := stsName + "-0"
+	podNamespace := s.podService.GetClient().GetNamespace(instance.UserID)
 
 	// Ensure Service exists (create if not exists)
 	serviceExists, _ := s.serviceService.ServiceExists(ctx, instance.UserID, instance.ID)
@@ -520,8 +545,6 @@ func (s *instanceService) Start(instanceID int) error {
 
 	// Update instance status
 	now := time.Now()
-	podNamespace := pod.Namespace
-	podName := pod.Name
 	instance.PodNamespace = &podNamespace
 	instance.PodName = &podName
 	instance.Status = "creating"
