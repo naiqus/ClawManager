@@ -29,7 +29,9 @@ const (
 
 // Client wraps the Kubernetes client
 type Client struct {
-	Clientset    *kubernetes.Clientset
+	// Clientset is the typed Kubernetes API client. Declared as the
+	// kubernetes.Interface so unit tests can substitute fake.NewSimpleClientset().
+	Clientset    kubernetes.Interface
 	Config       *rest.Config
 	Namespace    string
 	StorageClass string
