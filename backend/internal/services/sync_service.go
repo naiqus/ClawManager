@@ -9,6 +9,7 @@ import (
 	"clawreef/internal/repository"
 	"clawreef/internal/services/k8s"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -17,6 +18,7 @@ type SyncService struct {
 	instanceRepo         repository.InstanceRepository
 	runtimeStatusService InstanceRuntimeStatusService
 	podService           *k8s.PodService
+	stsService           *k8s.StatefulSetService
 	interval             time.Duration
 	stopChan             chan struct{}
 }
@@ -27,6 +29,7 @@ func NewSyncService(instanceRepo repository.InstanceRepository, runtimeStatusSer
 		instanceRepo:         instanceRepo,
 		runtimeStatusService: runtimeStatusService,
 		podService:           k8s.NewPodService(),
+		stsService:           k8s.NewStatefulSetService(),
 		interval:             5 * time.Second, // Sync every 5 seconds for more responsive status updates
 		stopChan:             make(chan struct{}),
 	}
@@ -96,66 +99,44 @@ func (s *SyncService) syncAllInstances() {
 
 // syncInstance synchronizes a single instance's state
 func (s *SyncService) syncInstance(ctx context.Context, instance *models.Instance) {
-	// Check if pod exists in K8s
-	pod, err := s.podService.GetPod(ctx, instance.UserID, instance.ID)
-	if err != nil {
-		// Pod doesn't exist in K8s
-		if instance.Status == "running" || instance.Status == "creating" {
-			nextStatus := "stopped"
-			if instance.Status == "creating" {
-				nextStatus = "error"
-			}
-
-			fmt.Printf("Instance %d marked as %s but pod not found in K8s, updating status to %s\n",
-				instance.ID, instance.Status, nextStatus)
-			instance.Status = nextStatus
-			instance.PodName = nil
-			instance.PodNamespace = nil
-			instance.PodIP = nil
-			instance.UpdatedAt = time.Now()
-
-			if err := s.instanceRepo.Update(instance); err != nil {
-				fmt.Printf("Error updating instance %d status: %v\n", instance.ID, err)
-			} else {
-				s.updateInfraStatus(instance.ID, nextStatus)
-				// Broadcast status update
-				GetHub().BroadcastInstanceStatus(instance.UserID, instance)
-			}
-		}
-		return
+	sts, stsErr := s.stsService.GetStatefulSet(ctx, instance.UserID, instance.ID)
+	var pod *corev1.Pod
+	if stsErr == nil {
+		pod, _ = s.stsService.GetPod(ctx, instance.UserID, instance.ID)
 	}
 
-	// Pod exists, update instance info
-	needsUpdate := false
+	desiredStatus := mapStatefulSetToInstanceStatus(sts, pod, instance.Status)
 
-	// Check pod status and update instance accordingly
-	desiredStatus := mapPodToInstanceStatus(pod)
+	needsUpdate := false
 	if instance.Status != desiredStatus {
-		fmt.Printf("Instance %d: Pod status %s/ready=%v but instance status is %s, updating to %s\n",
-			instance.ID, pod.Status.Phase, isPodReady(pod), instance.Status, desiredStatus)
+		fmt.Printf("Instance %d: STS status maps to %s, was %s\n", instance.ID, desiredStatus, instance.Status)
 		instance.Status = desiredStatus
 		needsUpdate = true
 	}
 	s.updateInfraStatus(instance.ID, desiredStatus)
 
-	// Update Pod IP if changed
-	if pod.Status.PodIP != "" {
-		if instance.PodIP == nil || *instance.PodIP != pod.Status.PodIP {
-			instance.PodIP = &pod.Status.PodIP
+	if pod != nil {
+		if pod.Status.PodIP != "" && (instance.PodIP == nil || *instance.PodIP != pod.Status.PodIP) {
+			ip := pod.Status.PodIP
+			instance.PodIP = &ip
 			needsUpdate = true
 		}
-	}
-
-	// Update Pod name if changed
-	if instance.PodName == nil || *instance.PodName != pod.Name {
-		instance.PodName = &pod.Name
-		needsUpdate = true
-	}
-
-	// Update namespace if changed
-	if instance.PodNamespace == nil || *instance.PodNamespace != pod.Namespace {
-		instance.PodNamespace = &pod.Namespace
-		needsUpdate = true
+		if instance.PodName == nil || *instance.PodName != pod.Name {
+			pn := pod.Name
+			instance.PodName = &pn
+			needsUpdate = true
+		}
+		if instance.PodNamespace == nil || *instance.PodNamespace != pod.Namespace {
+			pns := pod.Namespace
+			instance.PodNamespace = &pns
+			needsUpdate = true
+		}
+	} else if desiredStatus == "stopped" {
+		// Clear PodIP only; keep PodName/Namespace so Start is fast.
+		if instance.PodIP != nil {
+			instance.PodIP = nil
+			needsUpdate = true
+		}
 	}
 
 	if needsUpdate {
@@ -163,12 +144,35 @@ func (s *SyncService) syncInstance(ctx context.Context, instance *models.Instanc
 		if err := s.instanceRepo.Update(instance); err != nil {
 			fmt.Printf("Error updating instance %d: %v\n", instance.ID, err)
 		} else {
-			fmt.Printf("Instance %d status synced: %s (Pod: %s, IP: %s)\n",
-				instance.ID, instance.Status, pod.Name, pod.Status.PodIP)
-			// Broadcast status update
 			GetHub().BroadcastInstanceStatus(instance.UserID, instance)
 		}
 	}
+}
+
+// mapStatefulSetToInstanceStatus translates STS+pod state to the instance
+// status enum used by the API and DB.
+//
+//	previous is the instance.Status value at entry; used only to decide
+//	whether a missing STS should be reported as "stopped" or "error" (the
+//	latter when the instance was still in the "creating" phase, mirroring
+//	the prior bare-pod behavior).
+func mapStatefulSetToInstanceStatus(sts *appsv1.StatefulSet, pod *corev1.Pod, previous string) string {
+	if sts == nil {
+		if previous == "creating" {
+			return "error"
+		}
+		return "stopped"
+	}
+	if sts.Spec.Replicas != nil && *sts.Spec.Replicas == 0 {
+		return "stopped"
+	}
+	if pod != nil && pod.Status.Phase == corev1.PodFailed {
+		return "error"
+	}
+	if sts.Status.ReadyReplicas == 1 && pod != nil && isPodReady(pod) {
+		return "running"
+	}
+	return "creating"
 }
 
 func (s *SyncService) updateInfraStatus(instanceID int, instanceStatus string) {
