@@ -76,6 +76,7 @@ type instanceService struct {
 	llmModelRepo          repository.LLMModelRepository
 	openClawConfigService OpenClawConfigService
 	podService            *k8s.PodService
+	stsService            *k8s.StatefulSetService
 	pvcService            *k8s.PVCService
 	serviceService        *k8s.ServiceService
 	networkPolicyService  *k8s.NetworkPolicyService
@@ -94,6 +95,7 @@ func NewInstanceService(instanceRepo repository.InstanceRepository, quotaRepo re
 		llmModelRepo:          llmModelRepo,
 		openClawConfigService: openClawConfigService,
 		podService:            k8s.NewPodService(),
+		stsService:            k8s.NewStatefulSetService(),
 		pvcService:            k8s.NewPVCService(),
 		serviceService:        k8s.NewServiceService(),
 		networkPolicyService:  k8s.NewNetworkPolicyService(),
@@ -317,7 +319,7 @@ func (s *instanceService) Create(userID int, req CreateInstanceRequest) (*models
 		EnvFromSecretNames: []string{bootstrapSecretName},
 	}
 
-	pod, err := s.podService.CreatePod(ctx, podConfig)
+	sts, err := s.stsService.CreateStatefulSet(ctx, podConfig)
 	if err != nil {
 		// Rollback: delete PVC and instance record
 		if requiresRestrictedNetwork(instance.Type) {
@@ -328,8 +330,12 @@ func (s *instanceService) Create(userID int, req CreateInstanceRequest) (*models
 			_ = s.openClawConfigService.MarkSnapshotFailed(bootstrapSnapshot, err)
 		}
 		s.instanceRepo.Delete(instance.ID)
-		return nil, fmt.Errorf("failed to create pod: %w", err)
+		return nil, fmt.Errorf("failed to create statefulset: %w", err)
 	}
+	// The pod will materialize as "<sts>-0" once scheduled; populate DB
+	// columns from the STS now (sync service will refresh PodIP).
+	podName := sts.Name + "-0"
+	podNamespace := sts.Namespace
 
 	// Create Service for the instance
 	serviceConfig := k8s.ServiceConfig{
@@ -342,8 +348,8 @@ func (s *instanceService) Create(userID int, req CreateInstanceRequest) (*models
 
 	serviceInfo, err := s.serviceService.CreateService(ctx, serviceConfig)
 	if err != nil {
-		// Rollback: delete pod, PVC and instance record
-		s.podService.DeletePod(ctx, userID, instance.ID)
+		// Rollback: delete statefulset, PVC and instance record
+		s.stsService.DeleteStatefulSet(ctx, userID, instance.ID)
 		if requiresRestrictedNetwork(instance.Type) {
 			s.networkPolicyService.DeletePolicy(ctx, userID, instance.ID, instance.Name)
 		}
@@ -358,8 +364,6 @@ func (s *instanceService) Create(userID int, req CreateInstanceRequest) (*models
 	fmt.Printf("Instance %d: Service created successfully (ClusterIP: %s)\n", instance.ID, serviceInfo.ClusterIP)
 
 	// Update instance with pod info
-	podNamespace := pod.Namespace
-	podName := pod.Name
 	instance.PodNamespace = &podNamespace
 	instance.PodName = &podName
 	instance.Status = "creating"
