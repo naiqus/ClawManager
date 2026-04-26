@@ -734,18 +734,30 @@ func (s *instanceService) Stop(instanceID int) error {
 		return fmt.Errorf("instance is not running")
 	}
 
-	// Delete pod
-	if err := s.podService.DeletePod(ctx, instance.UserID, instance.ID); err != nil {
-		return fmt.Errorf("failed to delete pod: %w", err)
+	// Scale STS to 0. Tolerate not-found (e.g. legacy bare-pod cleanup) so
+	// Stop is idempotent across the migration window.
+	if err := s.stsService.Scale(ctx, instance.UserID, instance.ID, 0); err != nil && !errors.Is(err, k8s.ErrStatefulSetNotFound) {
+		return fmt.Errorf("failed to scale statefulset: %w", err)
+	}
+	// Best-effort: delete any legacy bare Pod left over from pre-migration.
+	if existing, getErr := s.podService.GetPod(ctx, instance.UserID, instance.ID); getErr == nil && existing != nil {
+		legacy := true
+		for _, owner := range existing.OwnerReferences {
+			if owner.Kind == "StatefulSet" {
+				legacy = false
+				break
+			}
+		}
+		if legacy {
+			_ = s.podService.DeletePod(ctx, instance.UserID, instance.ID)
+		}
 	}
 
 	// Update instance status
 	now := time.Now()
 	instance.Status = "stopped"
 	instance.StoppedAt = &now
-	instance.PodName = nil
-	instance.PodNamespace = nil
-	instance.PodIP = nil
+	instance.PodIP = nil // STS-owned pod is gone; PodName/Namespace stay so Start is fast.
 	instance.UpdatedAt = now
 
 	if err := s.instanceRepo.Update(instance); err != nil {
