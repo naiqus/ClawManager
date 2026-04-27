@@ -142,6 +142,17 @@ func usesWebtopImage(instanceType string) bool {
 	}
 }
 
+// defaultImagePullPolicy returns the image pull policy to use for instance
+// pods. Operators can override the default ("IfNotPresent") by setting the
+// IMAGE_PULL_POLICY environment variable to "Always", "Never", or
+// "IfNotPresent".
+func defaultImagePullPolicy() string {
+	if v := strings.TrimSpace(os.Getenv("IMAGE_PULL_POLICY")); v != "" {
+		return v
+	}
+	return "IfNotPresent"
+}
+
 func defaultEgressProxyURL() (string, bool) {
 	if override := strings.TrimSpace(os.Getenv("CLAWMANAGER_EGRESS_PROXY_URL")); override != "" {
 		return override, true

@@ -14,6 +14,7 @@ import (
 	"clawreef/internal/repository"
 	"clawreef/internal/services/k8s"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -313,6 +314,7 @@ func (s *instanceService) Create(userID int, req CreateInstanceRequest) (*models
 		Image:              runtimeConfig.Image,
 		MountPath:          runtimeConfig.MountPath,
 		ContainerPort:      runtimeConfig.Port,
+		ImagePullPolicy:    corev1.PullPolicy(defaultImagePullPolicy()),
 		ExtraEnv:           extraEnv,
 		EnvFromSecretNames: []string{bootstrapSecretName},
 	}
@@ -480,6 +482,7 @@ func (s *instanceService) Start(instanceID int) error {
 		Image:              runtimeConfig.Image,
 		MountPath:          instance.MountPath,
 		ContainerPort:      runtimeConfig.Port,
+		ImagePullPolicy:    corev1.PullPolicy(defaultImagePullPolicy()),
 		ExtraEnv:           extraEnv,
 		EnvFromSecretNames: []string{bootstrapSecretName},
 	}

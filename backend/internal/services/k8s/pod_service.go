@@ -47,6 +47,7 @@ type PodConfig struct {
 	Image              string
 	MountPath          string
 	ContainerPort      int32
+	ImagePullPolicy    corev1.PullPolicy
 	ExtraEnv           map[string]string
 	EnvFromSecretNames []string
 }
@@ -84,6 +85,14 @@ func (s *PodService) CreatePod(ctx context.Context, config PodConfig) (*corev1.P
 		config.ContainerPort = 3001
 	}
 
+	// Default image pull policy to IfNotPresent so that air-gapped and
+	// enterprise environments can use locally cached images without being
+	// forced to pull from a remote registry (fixes #94).
+	pullPolicy := config.ImagePullPolicy
+	if pullPolicy == "" {
+		pullPolicy = corev1.PullIfNotPresent
+	}
+
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
@@ -101,8 +110,9 @@ func (s *PodService) CreatePod(ctx context.Context, config PodConfig) (*corev1.P
 			RestartPolicy: corev1.RestartPolicyNever,
 			Containers: []corev1.Container{
 				{
-					Name:  "desktop",
-					Image: config.Image,
+					Name:            "desktop",
+					Image:           config.Image,
+					ImagePullPolicy: pullPolicy,
 					Ports: []corev1.ContainerPort{
 						{
 							ContainerPort: config.ContainerPort,
